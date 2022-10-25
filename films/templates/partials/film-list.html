@@ -1,5 +1,17 @@
+<div class="d-flex justify-content-between">
+
+<section class="col-6">
+
+    {% if messages %}
+    <ul class="messages" hx-get="{% url 'clear' %}" hx-trigger="load delay:3s">
+        {% for message in messages %}
+        <li {% if message.tags %}class="{{message.tags}}"{% endif %}>{{message}}</li>
+        {% endfor %}
+    </ul>
+    {% endif %}
+
 {% if films %}
-    <ul class="list-group col-4">
+    <ul class="list-group col-12">
 
             {% for film in films %}
             <li class="list-group-item d-flex justify-content-between align-items-center">
@@ -20,3 +32,12 @@
 <p>You do not have any films in your list</p>
 
 {% endif %}
+</section>
+
+
+<section>
+    {% include 'partials/search.html' %}
+</section>
+
+
+</div>

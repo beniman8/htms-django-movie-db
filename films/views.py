@@ -9,6 +9,12 @@ from .models import Film
 from django.views.generic.list import ListView
 from django.shortcuts import render
 
+
+from django.contrib.auth.decorators import login_required
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.decorators.http import require_http_methods
+from django.contrib import messages
+
 from films.forms import RegisterForm
 
 class IndexView(TemplateView):
@@ -26,7 +32,7 @@ class RegisterView(FormView):
         form.save()  # save the user
         return super().form_valid(form)
 
-class FilmListView(ListView):
+class FilmListView(LoginRequiredMixin,ListView):
     model = Film
     template_name = "films.html"
     context_object_name ='films'
@@ -47,20 +53,23 @@ def check_username(request):
     else:
         return HttpResponse("<div id='username-error' class='success'>This username is available</div>")
 
-
+@login_required
 def add_film(request):
     name = request.POST.get('filmname')
 
-    film = Film.objects.create(name=name)
+    film = Film.objects.get_or_create(name=name)[0]
 
     # add film to user's 
     request.user.films.add(film)
 
     #return template with all of the users films
     films = request.user.films.all()
+    messages.success(request,f"Added {name} to list of films")
     return render(request,'partials/film-list.html',{'films':films})
 
 
+@login_required
+@require_http_methods('DELETE')
 def delete_film(request,pk):
 
     #remove the film from user's list
@@ -69,3 +78,19 @@ def delete_film(request,pk):
     #retuern templat fragment
     films = request.user.films.all()
     return render(request,'partials/film-list.html',{'films':films})
+
+
+def search_film(request):
+    search_text = request.POST.get('search')
+
+    userfilms= request.user.films.all()
+    results = Film.objects.filter(name__icontains=search_text).exclude(
+        name__in=userfilms.values_list('name',flat=True)
+    )
+
+    return render(request,'partials/search-results.html',{'results':results})
+
+
+
+def clear(request):
+    return HttpResponse("")
