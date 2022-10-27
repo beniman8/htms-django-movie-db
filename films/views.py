@@ -5,7 +5,7 @@ from django.urls import reverse_lazy
 from django.http import HttpResponse
 from django.views.generic import FormView, TemplateView
 from django.contrib.auth import get_user_model
-from .models import Film
+from .models import Film,UserFilms
 from django.views.generic.list import ListView
 from django.shortcuts import render
 
@@ -16,6 +16,8 @@ from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 
 from films.forms import RegisterForm
+from films.utils import get_max_order , reorder
+
 
 class IndexView(TemplateView):
     template_name = 'index.html'
@@ -39,8 +41,10 @@ class FilmListView(LoginRequiredMixin,ListView):
 
     #filter to get the users film only and not all the available films
     def get_queryset(self):
-        user = self.request.user
-        return user.films.all()
+        # user = self.request.user
+        # return user.films.all()
+
+        return UserFilms.objects.filter(user=self.request.user)
     
 
 
@@ -60,10 +64,13 @@ def add_film(request):
     film = Film.objects.get_or_create(name=name)[0]
 
     # add film to user's 
-    request.user.films.add(film)
+    # request.user.films.add(film)
+    if not UserFilms.objects.filter(film=film,user = request.user).exists():
+
+        UserFilms.objects.create(film=film,user = request.user,order=get_max_order(request.user))
 
     #return template with all of the users films
-    films = request.user.films.all()
+    films = UserFilms.objects.filter(user=request.user)
     messages.success(request,f"Added {name} to list of films")
     return render(request,'partials/film-list.html',{'films':films})
 
@@ -73,19 +80,21 @@ def add_film(request):
 def delete_film(request,pk):
 
     #remove the film from user's list
-    request.user.films.remove(pk)
-
+    # request.user.films.remove(pk)
+    UserFilms.objects.get(pk=pk).delete()
+    reorder(request.user)
     #retuern templat fragment
-    films = request.user.films.all()
+    # films = request.user.films.all()
+    films =UserFilms.objects.filter(user = request.user)
     return render(request,'partials/film-list.html',{'films':films})
 
 
 def search_film(request):
     search_text = request.POST.get('search')
 
-    userfilms= request.user.films.all()
+    userfilms= UserFilms.objects.filter(user = request.user)
     results = Film.objects.filter(name__icontains=search_text).exclude(
-        name__in=userfilms.values_list('name',flat=True)
+        name__in=userfilms.values_list('film__name',flat=True)
     )
 
     return render(request,'partials/search-results.html',{'results':results})
@@ -94,3 +103,20 @@ def search_film(request):
 
 def clear(request):
     return HttpResponse("")
+
+
+
+def sort(request):
+    film_pks_order = request.POST.getlist('film_order')
+    films = []
+    for idx,film_pk in enumerate(film_pks_order,start=1):
+        userfilm = UserFilms.objects.get(pk=film_pk)
+        userfilm.order = idx
+        userfilm.save()
+        films.append(userfilm)
+
+    return render(request,'partials/film-list.html',{'films':films})
+
+
+    
+    
