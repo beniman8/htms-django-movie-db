@@ -7,7 +7,7 @@ from django.views.generic import FormView, TemplateView
 from django.contrib.auth import get_user_model
 from .models import Film,UserFilms
 from django.views.generic.list import ListView
-from django.shortcuts import render
+from django.shortcuts import render,get_object_or_404
 
 
 from django.contrib.auth.decorators import login_required
@@ -117,6 +117,28 @@ def sort(request):
 
     return render(request,'partials/film-list.html',{'films':films})
 
+@login_required
+def detail(request,pk):
+    userfilm = get_object_or_404(UserFilms,pk=pk)
+    context  = {'userfilm':userfilm}
 
+    return render(request,'partials/film-detail.html',context)
+
+
+def films_partials(request):
+
+    films= UserFilms.objects.filter(user = request.user)
     
+    return render(request,'partials/film-list.html',{'films':films})
+
+
+@login_required
+def upload_photo(request,pk):
+    userfilm = get_object_or_404(UserFilms,pk=pk)
+    photo = request.FILES.get('photo')
+
+    userfilm.film.photo.save(photo.name,photo)
+
+    context  = {'userfilm':userfilm}
     
+    return render(request,'partials/film-detail.html',context)
