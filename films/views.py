@@ -14,6 +14,8 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.views.decorators.http import require_http_methods
 from django.contrib import messages
+from django.conf import settings
+from django.core.paginator import Paginator
 
 from films.forms import RegisterForm
 from films.utils import get_max_order , reorder
@@ -38,15 +40,15 @@ class FilmListView(LoginRequiredMixin,ListView):
     model = UserFilms
     template_name = "films.html"
     context_object_name ='films'
-    paginate_by = 20
+    paginate_by = settings.PAGINATE_BY
 
 
     def get_template_names(self):
 
         if self.request.htmx:
             return "partials/film-list-elements.html"
-        else:
-            return "films.html"
+
+        return "films.html"
 
 
     #filter to get the users film only and not all the available films
@@ -54,7 +56,7 @@ class FilmListView(LoginRequiredMixin,ListView):
         # user = self.request.user
         # return user.films.all()
 
-        return UserFilms.objects.filter(user=self.request.user)
+        return UserFilms.objects.prefetch_related('film').filter(user=self.request.user)
     
 
 
@@ -119,13 +121,31 @@ def clear(request):
 def sort(request):
     film_pks_order = request.POST.getlist('film_order')
     films = []
-    for idx,film_pk in enumerate(film_pks_order,start=1):
-        userfilm = UserFilms.objects.get(pk=film_pk)
-        userfilm.order = idx
-        userfilm.save()
-        films.append(userfilm)
+    updated_films = []
 
-    return render(request,'partials/film-list.html',{'films':films})
+    # fetch user's films in advance (rather than once per loop)
+    userfilms = UserFilms.objects.prefetch_related('film').filter(user=request.user)
+
+    for idx, film_pk in enumerate(film_pks_order, start=1):
+        # find instance w/ the correct PK
+        userfilm = next(u for u in userfilms if u.pk == int(film_pk))
+
+        # add changed movies only to an updated_films list
+        if userfilm.order != idx:
+            userfilm.order = idx
+            updated_films.append(userfilm)
+
+        films.append(userfilm)
+    
+    # bulk_update changed UserFilms's 'order' field
+    UserFilms.objects.bulk_update(updated_films, ['order'])
+
+    paginator = Paginator(films, settings.PAGINATE_BY)
+    page_number = len(film_pks_order) / settings.PAGINATE_BY
+    page_obj = paginator.get_page(page_number)
+    context = {'films': films, 'page_obj': page_obj}
+
+    return render(request, 'partials/film-list.html', context)
 
 @login_required
 def detail(request,pk):

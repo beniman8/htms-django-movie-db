@@ -40,9 +40,11 @@ INSTALLED_APPS = [
     'widget_tweaks',
     'django_extensions',
     "django_htmx",
+    "debug_toolbar",
 ]
 
 MIDDLEWARE = [
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -51,6 +53,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
+    
 ]
 
 ROOT_URLCONF = "core.urls"
@@ -138,3 +141,13 @@ LOGOUT_REDIRECT_URL = 'index'
 # LOGIN_REDIRECT_URL = "/"
 
 # LOGIN_URL = "/login/"
+
+INTERNAL_IPS = [
+    # ...
+    "127.0.0.1",
+    '192.168.0.13',
+    '192.168.0.12',
+    # ...
+]
+
+PAGINATE_BY=20
